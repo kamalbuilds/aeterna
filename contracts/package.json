@@ -1,0 +1,48 @@
+{
+  "name": "@aeterna/smart-contracts",
+  "version": "1.0.0",
+  "description": "AETERNA Smart Contracts - Production-level Solidity implementation",
+  "main": "index.js",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
+    "deploy:localhost": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:mainnet": "hardhat run scripts/deploy.js --network mainnet",
+    "verify": "hardhat verify",
+    "lint": "solhint 'src/**/*.sol'",
+    "format": "prettier --write 'src/**/*.sol'",
+    "node": "hardhat node",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@openzeppelin/hardhat-upgrades": "^3.0.0",
+    "hardhat": "^2.19.0",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.5",
+    "prettier": "^3.0.0",
+    "prettier-plugin-solidity": "^1.1.3",
+    "solhint": "^4.0.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts-upgradeable": "^5.0.0",
+    "dotenv": "^16.3.0"
+  },
+  "keywords": [
+    "aeterna",
+    "smart-contracts",
+    "solidity",
+    "blockchain",
+    "erc-8004",
+    "agent-identity",
+    "bonding-curves",
+    "cross-chain",
+    "reactive-contracts"
+  ],
+  "author": "AETERNA Development Team",
+  "license": "MIT"
+}

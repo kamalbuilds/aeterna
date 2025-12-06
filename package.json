@@ -1,0 +1,77 @@
+{
+  "name": "aeterna-ai",
+  "version": "1.0.0",
+  "description": "AETERNA - Advanced AI Intelligence and Learning System",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix",
+    "build": "node scripts/build.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
+    "openai": "^4.52.1",
+    "axios": "^1.7.2",
+    "lodash": "^4.17.21",
+    "uuid": "^10.0.0",
+    "sqlite3": "^5.1.6",
+    "better-sqlite3": "^9.4.3",
+    "vectordb": "^0.4.0",
+    "hnswlib-node": "^3.0.0",
+    "compromise": "^14.13.0",
+    "natural": "^6.12.0",
+    "ml-matrix": "^6.11.1",
+    "node-cron": "^3.0.3",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "rate-limiter-flexible": "^5.0.3",
+    "winston": "^3.13.0",
+    "joi": "^17.13.1",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "crypto": "^1.0.1",
+    "node-cache": "^5.1.2",
+    "redis": "^4.6.13"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "eslint": "^8.57.0",
+    "@babel/core": "^7.24.7",
+    "@babel/preset-env": "^7.24.7",
+    "supertest": "^7.0.0",
+    "nodemon": "^3.1.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/index.js"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "ai",
+    "artificial-intelligence",
+    "claude",
+    "gpt",
+    "machine-learning",
+    "nlp",
+    "conversation",
+    "automation"
+  ],
+  "author": "AETERNA AI Team",
+  "license": "MIT",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  }
+}
