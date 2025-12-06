@@ -1,0 +1,263 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String      @id @default(cuid())
+  email             String      @unique
+  username          String      @unique
+  passwordHash      String
+  firstName         String?
+  lastName          String?
+  avatar            String?
+  bio               String?
+  isActive          Boolean     @default(true)
+  isVerified        Boolean     @default(false)
+  lastLoginAt       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Blockchain related
+  walletAddress     String?     @unique
+  privateKey        String?     // Encrypted
+  publicKey         String?
+
+  // Relations
+  agents            Agent[]
+  memories          Memory[]
+  transactions      Transaction[]
+  sessions          Session[]
+  refreshTokens     RefreshToken[]
+
+  @@map("users")
+}
+
+model Agent {
+  id                String      @id @default(cuid())
+  name              String
+  description       String?
+  type              AgentType   @default(AUTONOMOUS)
+  status            AgentStatus @default(INACTIVE)
+  capabilities      String[]    // JSON array of capabilities
+  configuration     Json?       // Agent-specific configuration
+
+  // Blockchain integration
+  contractAddress   String?     @unique
+  tokenId           String?
+  blockchainData    Json?       // Store blockchain-specific data
+
+  // Ownership and access
+  ownerId           String
+  owner             User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  isPublic          Boolean     @default(false)
+
+  // Performance metrics
+  tasksCompleted    Int         @default(0)
+  successRate       Float       @default(0.0)
+  lastActiveAt      DateTime?
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  memories          Memory[]
+  transactions      Transaction[]
+  agentMetrics      AgentMetric[]
+
+  @@map("agents")
+}
+
+model Memory {
+  id                String      @id @default(cuid())
+  content           String
+  type              MemoryType  @default(EXPERIENCE)
+  importance        Float       @default(0.5) // 0.0 to 1.0
+  tags              String[]    // Searchable tags
+  metadata          Json?       // Additional structured data
+
+  // Ownership
+  agentId           String
+  agent             Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Memory relationships
+  parentId          String?
+  parent            Memory?     @relation("MemoryHierarchy", fields: [parentId], references: [id])
+  children          Memory[]    @relation("MemoryHierarchy")
+
+  // Blockchain storage
+  ipfsHash          String?     // IPFS hash for decentralized storage
+  blockchainTxHash  String?     // Transaction hash when stored on blockchain
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  expiresAt         DateTime?   // Optional expiration
+
+  @@map("memories")
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  type              TransactionType
+  status            TransactionStatus @default(PENDING)
+
+  // Blockchain details
+  txHash            String?           @unique
+  blockNumber       BigInt?
+  gasUsed           BigInt?
+  gasPrice          BigInt?
+  value             String?           // Wei amount as string
+
+  // Transaction participants
+  fromAddress       String?
+  toAddress         String?
+  contractAddress   String?
+
+  // Metadata
+  data              Json?             // Transaction data
+  errorMessage      String?
+  confirmations     Int               @default(0)
+
+  // Relations
+  agentId           String?
+  agent             Agent?            @relation(fields: [agentId], references: [id])
+  userId            String
+  user              User              @relation(fields: [userId], references: [id])
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("transactions")
+}
+
+model Session {
+  id                String      @id @default(cuid())
+  sessionToken      String      @unique
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires           DateTime
+  ipAddress         String?
+  userAgent         String?
+  isActive          Boolean     @default(true)
+  lastAccessedAt    DateTime    @default(now())
+  createdAt         DateTime    @default(now())
+
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id                String      @id @default(cuid())
+  token             String      @unique
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt         DateTime
+  isRevoked         Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model AgentMetric {
+  id                String      @id @default(cuid())
+  agentId           String
+  agent             Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // Performance metrics
+  cpuUsage          Float?
+  memoryUsage       Float?
+  responseTime      Int?        // milliseconds
+  errorRate         Float?      // 0.0 to 1.0
+  throughput        Int?        // operations per minute
+
+  // Business metrics
+  taskSuccess       Boolean?
+  userSatisfaction  Float?      // 0.0 to 1.0
+
+  recordedAt        DateTime    @default(now())
+
+  @@map("agent_metrics")
+}
+
+model ApiKey {
+  id                String      @id @default(cuid())
+  name              String
+  keyHash           String      @unique
+  prefix            String      @unique // First 8 chars for identification
+  permissions       Json        // Array of permissions
+  isActive          Boolean     @default(true)
+  lastUsedAt        DateTime?
+  expiresAt         DateTime?
+  rateLimit         Int?        // Requests per hour
+
+  // Ownership
+  userId            String
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@map("api_keys")
+}
+
+model AuditLog {
+  id                String      @id @default(cuid())
+  action            String      // Action performed
+  entityType        String      // Type of entity affected
+  entityId          String      // ID of affected entity
+  userId            String?     // User who performed action
+  ipAddress         String?
+  userAgent         String?
+  details           Json?       // Additional details
+  timestamp         DateTime    @default(now())
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum AgentType {
+  AUTONOMOUS
+  COLLABORATIVE
+  SPECIALIZED
+  LEARNING
+}
+
+enum AgentStatus {
+  ACTIVE
+  INACTIVE
+  BUSY
+  ERROR
+  MAINTENANCE
+}
+
+enum MemoryType {
+  EXPERIENCE
+  KNOWLEDGE
+  SKILL
+  PREFERENCE
+  CONTEXT
+  GOAL
+}
+
+enum TransactionType {
+  AGENT_CREATION
+  AGENT_UPDATE
+  MEMORY_STORE
+  TOKEN_TRANSFER
+  CONTRACT_INTERACTION
+  PAYMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
