@@ -1,710 +1,631 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import "../interfaces/IAgentIdentity.sol";
-import "../interfaces/IERC8004.sol";
+import "../interfaces/IAgent.sol";
 
 /**
- * @title AgentIdentity
- * @notice Production implementation of ERC-8004 Agent Identity standard
- * @dev Provides secure, verifiable identity management for AI agents with reputation tracking
- * @author AETERNA Development Team
+ * @title AgentIdentity - Core Agent Identity Contract for AETERNA Protocol
+ * @notice Implements ERC-721 NFT standard for agent identities with comprehensive functionality
+ * @dev Gas-optimized implementation with ERC-8004 compliance for autonomous agents
+ * @custom:version 1.0.0
+ * @custom:author AETERNA Protocol Team
+ * @custom:security-contact security@aeterna.io
  */
 contract AgentIdentity is
-    IAgentIdentity,
-    IERC8004,
+    ERC721,
+    ERC721Enumerable,
+    ERC721URIStorage,
     AccessControl,
     ReentrancyGuard,
     Pausable,
-    EIP712
+    IAgent
 {
     using Counters for Counters.Counter;
-    using ECDSA for bytes32;
 
-    // =============================================================
-    //                           CONSTANTS
-    // =============================================================
+    // ============ CONSTANTS ============
 
-    bytes32 public constant REPUTATION_ORACLE_ROLE = keccak256("REPUTATION_ORACLE_ROLE");
-    bytes32 public constant VALIDATOR_ROLE = keccak256("VALIDATOR_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
+    bytes32 public constant REPUTATION_MANAGER_ROLE = keccak256("REPUTATION_MANAGER_ROLE");
 
-    uint256 public constant MAX_REPUTATION = 10000; // 100.00% with 2 decimals
-    uint256 public constant MIN_REPUTATION = 0;
-    uint256 public constant INITIAL_REPUTATION = 5000; // 50.00% starting reputation
+    uint256 public constant MAX_CAPABILITIES = 50;
+    uint256 public constant MAX_AGENTS_PER_OWNER = 100;
+    int256 public constant MIN_REPUTATION = -1000;
+    int256 public constant MAX_REPUTATION = 1000;
+    uint256 public constant REPUTATION_DECAY_PERIOD = 30 days;
 
-    // Signature typehash for agent registration
-    bytes32 private constant REGISTER_AGENT_TYPEHASH =
-        keccak256("RegisterAgent(bytes32 agentId,string metadataURI,uint256 nonce,uint256 deadline)");
+    // ============ STATE VARIABLES ============
 
-    // Signature typehash for reputation updates
-    bytes32 private constant UPDATE_REPUTATION_TYPEHASH =
-        keccak256("UpdateReputation(bytes32 agentId,uint256 newReputation,uint256 nonce,uint256 deadline)");
+    Counters.Counter private _agentIdCounter;
 
-    // =============================================================
-    //                           STORAGE
-    // =============================================================
+    // Agent ID => AgentInfo
+    mapping(uint256 => AgentInfo) private _agents;
 
-    // Agent data mapping
-    mapping(bytes32 => AgentInfo) private _agents;
+    // Agent ID => PerformanceMetrics
+    mapping(uint256 => PerformanceMetrics) private _metrics;
 
-    // Owner to agent IDs mapping
-    mapping(address => bytes32[]) private _ownerToAgents;
+    // Agent ID => Authorized operators
+    mapping(uint256 => mapping(address => bool)) private _authorizedOperators;
 
-    // Agent ID to owner index mapping (for efficient removal)
-    mapping(bytes32 => uint256) private _agentOwnerIndex;
+    // Owner => Agent IDs array
+    mapping(address => uint256[]) private _ownerAgents;
 
-    // Total number of registered agents
-    Counters.Counter private _totalAgents;
+    // Agent type => Agent IDs array
+    mapping(string => uint256[]) private _agentsByType;
 
-    // Nonces for signature verification
-    mapping(address => uint256) private _nonces;
+    // Reputation range => Agent IDs array
+    mapping(int256 => mapping(int256 => uint256[])) private _agentsByReputation;
 
-    // Verified agents mapping
-    mapping(bytes32 => bool) private _verifiedAgents;
+    // Agent ID => Capability => exists
+    mapping(uint256 => mapping(string => bool)) private _agentCapabilities;
 
-    // Agent verifiers mapping
-    mapping(bytes32 => address) private _agentVerifiers;
+    // Agent ID => array of capability strings (for enumeration)
+    mapping(uint256 => string[]) private _agentCapabilityList;
 
-    // Time-based reputation decay parameters
-    uint256 public reputationDecayRate = 1; // 0.01% per day
-    uint256 public constant DECAY_PERIOD = 1 days;
+    // Global statistics
+    uint256 private _totalActiveAgents;
+    uint256 private _totalRetiredAgents;
 
-    // Agent activity thresholds
-    uint256 public constant INACTIVITY_THRESHOLD = 30 days;
-    uint256 public constant REPUTATION_UPDATE_COOLDOWN = 1 hours;
+    // Gas optimization: packed structs for frequently accessed data
+    struct PackedAgentData {
+        uint128 createdAt;
+        uint128 lastActive;
+        AgentStatus status;
+        TrustLevel trustLevel;
+        int16 reputation;  // Scaled by 10 for precision
+        uint16 capabilityCount;
+    }
 
-    // Last reputation update timestamps
-    mapping(bytes32 => uint256) private _lastReputationUpdate;
+    mapping(uint256 => PackedAgentData) private _packedData;
 
-    // =============================================================
-    //                           EVENTS
-    // =============================================================
+    // ============ EVENTS ============
 
-    event AgentVerified(bytes32 indexed agentId, address indexed verifier, bool verified);
-    event ReputationDecayApplied(bytes32 indexed agentId, uint256 oldReputation, uint256 newReputation);
-    event EmergencyPause(address indexed by, uint256 timestamp);
-    event EmergencyUnpause(address indexed by, uint256 timestamp);
+    event AgentMinted(
+        uint256 indexed agentId,
+        address indexed owner,
+        string agentType,
+        uint256 timestamp
+    );
 
-    // =============================================================
-    //                           ERRORS
-    // =============================================================
+    event BatchAgentsCreated(
+        uint256[] agentIds,
+        address indexed creator,
+        uint256 count
+    );
 
-    error AgentAlreadyExists(bytes32 agentId);
-    error AgentNotFound(bytes32 agentId);
-    error InvalidReputation(uint256 reputation);
-    error UnauthorizedCaller(address caller);
-    error InvalidSignature();
-    error SignatureExpired(uint256 deadline);
-    error InsufficientCooldown(uint256 remaining);
-    error InvalidMetadataURI();
-    error ZeroAddress();
+    event AgentTransferred(
+        uint256 indexed agentId,
+        address indexed from,
+        address indexed to,
+        uint256 timestamp
+    );
 
-    // =============================================================
-    //                           MODIFIERS
-    // =============================================================
+    // ============ MODIFIERS ============
 
-    modifier onlyAgentOwner(bytes32 agentId) {
-        if (_agents[agentId].owner != msg.sender) {
-            revert UnauthorizedCaller(msg.sender);
+    modifier onlyAgentOwner(uint256 agentId) {
+        if (ownerOf(agentId) != msg.sender) {
+            revert Unauthorized(msg.sender, agentId);
         }
         _;
     }
 
-    modifier onlyExistingAgent(bytes32 agentId) {
-        if (_agents[agentId].owner == address(0)) {
+    modifier onlyAuthorized(uint256 agentId) {
+        address owner = ownerOf(agentId);
+        if (msg.sender != owner && !_authorizedOperators[agentId][msg.sender] && !hasRole(CONTROLLER_ROLE, msg.sender)) {
+            revert Unauthorized(msg.sender, agentId);
+        }
+        _;
+    }
+
+    modifier agentExists(uint256 agentId) {
+        if (!_exists(agentId)) {
             revert AgentNotFound(agentId);
         }
         _;
     }
 
-    modifier validReputation(uint256 reputation) {
-        if (reputation > MAX_REPUTATION) {
+    modifier validReputation(int256 reputation) {
+        if (reputation < MIN_REPUTATION || reputation > MAX_REPUTATION) {
             revert InvalidReputation(reputation);
         }
         _;
     }
 
-    modifier respectCooldown(bytes32 agentId) {
-        uint256 timeSinceLastUpdate = block.timestamp - _lastReputationUpdate[agentId];
-        if (timeSinceLastUpdate < REPUTATION_UPDATE_COOLDOWN) {
-            revert InsufficientCooldown(REPUTATION_UPDATE_COOLDOWN - timeSinceLastUpdate);
-        }
-        _;
-    }
+    // ============ CUSTOM ERRORS ============
 
-    // =============================================================
-    //                           CONSTRUCTOR
-    // =============================================================
+    error AgentNotFound(uint256 agentId);
+    error Unauthorized(address caller, uint256 agentId);
+    error InvalidReputation(int256 reputation);
+    error MaxCapabilitiesExceeded(uint256 provided, uint256 maximum);
+    error MaxAgentsPerOwnerExceeded(address owner, uint256 current, uint256 maximum);
+    error InvalidAgentStatus(AgentStatus current, AgentStatus requested);
+    error CapabilityNotFound(string capability);
+    error EmptyCapabilityString();
+    error InvalidMetadata(string reason);
+
+    // ============ CONSTRUCTOR ============
 
     constructor(
         address defaultAdmin,
-        address[] memory reputationOracles,
-        address[] memory validators
-    ) EIP712("AgentIdentity", "1") {
-        if (defaultAdmin == address(0)) revert ZeroAddress();
-
-        // Set up roles
+        address minter,
+        address controller
+    ) ERC721("AETERNA Agent Identity", "AGENT") {
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
-        _grantRole(PAUSER_ROLE, defaultAdmin);
+        _grantRole(MINTER_ROLE, minter);
+        _grantRole(CONTROLLER_ROLE, controller);
+        _grantRole(REPUTATION_MANAGER_ROLE, controller);
 
-        // Add reputation oracles
-        for (uint256 i = 0; i < reputationOracles.length; i++) {
-            if (reputationOracles[i] != address(0)) {
-                _grantRole(REPUTATION_ORACLE_ROLE, reputationOracles[i]);
-            }
-        }
-
-        // Add validators
-        for (uint256 i = 0; i < validators.length; i++) {
-            if (validators[i] != address(0)) {
-                _grantRole(VALIDATOR_ROLE, validators[i]);
-            }
-        }
+        // Start agent IDs at 1
+        _agentIdCounter.increment();
     }
 
-    // =============================================================
-    //                      AGENT REGISTRATION
-    // =============================================================
+    // ============ CORE FUNCTIONS ============
 
     /**
-     * @inheritdoc IAgentIdentity
+     * @notice Create a new autonomous agent
+     * @param agentType Type of agent to create
+     * @param capabilities Initial capabilities for the agent
+     * @param metadataHash Hash of additional metadata
+     * @return agentId Unique identifier for the created agent
      */
-    function registerAgent(
-        bytes32 agentId,
-        string calldata metadataURI
-    ) external override whenNotPaused {
-        _registerAgent(agentId, metadataURI, msg.sender);
+    function createAgent(
+        string calldata agentType,
+        string[] calldata capabilities,
+        bytes32 metadataHash
+    ) external override nonReentrant whenNotPaused returns (uint256 agentId) {
+        return _createAgent(msg.sender, agentType, capabilities, metadataHash);
     }
 
     /**
-     * @inheritdoc IERC8004
+     * @notice Create agent on behalf of another address (minter role required)
      */
-    function registerAgent(
-        bytes32 agentId,
-        string calldata metadataURI
-    ) external override returns (bool success) {
-        _registerAgent(agentId, metadataURI, msg.sender);
-        return true;
+    function createAgentFor(
+        address to,
+        string calldata agentType,
+        string[] calldata capabilities,
+        bytes32 metadataHash
+    ) external onlyRole(MINTER_ROLE) nonReentrant whenNotPaused returns (uint256 agentId) {
+        return _createAgent(to, agentType, capabilities, metadataHash);
     }
 
     /**
-     * @notice Register agent with signature verification
-     * @param agentId Unique agent identifier
-     * @param metadataURI IPFS hash or URI for agent metadata
-     * @param owner Owner address
-     * @param deadline Signature expiration timestamp
-     * @param signature EIP-712 signature from owner
+     * @notice Batch create multiple agents (gas optimized)
      */
-    function registerAgentWithSignature(
-        bytes32 agentId,
-        string calldata metadataURI,
-        address owner,
-        uint256 deadline,
-        bytes calldata signature
-    ) external whenNotPaused {
-        if (block.timestamp > deadline) {
-            revert SignatureExpired(deadline);
+    function batchCreateAgents(
+        string[] calldata agentTypes,
+        string[][] calldata capabilities,
+        bytes32[] calldata metadataHashes
+    ) external onlyRole(MINTER_ROLE) nonReentrant whenNotPaused returns (uint256[] memory agentIds) {
+        uint256 length = agentTypes.length;
+        if (length != capabilities.length || length != metadataHashes.length) {
+            revert("Array length mismatch");
         }
 
-        bytes32 structHash = keccak256(abi.encode(
-            REGISTER_AGENT_TYPEHASH,
-            agentId,
-            keccak256(bytes(metadataURI)),
-            _nonces[owner]++,
-            deadline
-        ));
-
-        bytes32 hash = _hashTypedDataV4(structHash);
-        address signer = hash.recover(signature);
-
-        if (signer != owner) {
-            revert InvalidSignature();
+        agentIds = new uint256[](length);
+        for (uint256 i = 0; i < length;) {
+            agentIds[i] = _createAgent(msg.sender, agentTypes[i], capabilities[i], metadataHashes[i]);
+            unchecked { ++i; }
         }
 
-        _registerAgent(agentId, metadataURI, owner);
+        emit BatchAgentsCreated(agentIds, msg.sender, length);
     }
 
     /**
-     * @dev Internal agent registration logic
+     * @dev Internal function to create an agent with gas optimizations
      */
-    function _registerAgent(
-        bytes32 agentId,
-        string calldata metadataURI,
-        address owner
-    ) internal {
-        if (_agents[agentId].owner != address(0)) {
-            revert AgentAlreadyExists(agentId);
+    function _createAgent(
+        address to,
+        string calldata agentType,
+        string[] calldata capabilities,
+        bytes32 metadataHash
+    ) private returns (uint256 agentId) {
+        // Validate input parameters
+        if (capabilities.length > MAX_CAPABILITIES) {
+            revert MaxCapabilitiesExceeded(capabilities.length, MAX_CAPABILITIES);
         }
 
-        if (bytes(metadataURI).length == 0) {
-            revert InvalidMetadataURI();
+        if (_ownerAgents[to].length >= MAX_AGENTS_PER_OWNER) {
+            revert MaxAgentsPerOwnerExceeded(to, _ownerAgents[to].length, MAX_AGENTS_PER_OWNER);
         }
 
-        // Create agent info
+        // Get next agent ID
+        agentId = _agentIdCounter.current();
+        _agentIdCounter.increment();
+
+        // Mint NFT
+        _safeMint(to, agentId);
+
+        // Initialize agent data
         AgentInfo storage agent = _agents[agentId];
-        agent.agentId = agentId;
-        agent.owner = owner;
-        agent.reputation = INITIAL_REPUTATION;
-        agent.metadataURI = metadataURI;
+        agent.id = agentId;
+        agent.owner = to;
+        agent.agentType = agentType;
+        agent.status = AgentStatus.Active;
+        agent.trustLevel = TrustLevel.Untrusted;
         agent.createdAt = block.timestamp;
         agent.lastActive = block.timestamp;
-        agent.isActive = true;
+        agent.reputation = 0;
+        agent.metadataHash = metadataHash;
 
-        // Add to owner's agent list
-        _ownerToAgents[owner].push(agentId);
-        _agentOwnerIndex[agentId] = _ownerToAgents[owner].length - 1;
+        // Store packed data for gas optimization
+        PackedAgentData storage packed = _packedData[agentId];
+        packed.createdAt = uint128(block.timestamp);
+        packed.lastActive = uint128(block.timestamp);
+        packed.status = AgentStatus.Active;
+        packed.trustLevel = TrustLevel.Untrusted;
+        packed.reputation = 0;
+        packed.capabilityCount = uint16(capabilities.length);
 
-        // Increment total counter
-        _totalAgents.increment();
+        // Set capabilities
+        _setCapabilities(agentId, capabilities);
 
-        emit AgentRegistered(agentId, owner, metadataURI, block.timestamp);
+        // Update mappings
+        _ownerAgents[to].push(agentId);
+        _agentsByType[agentType].push(agentId);
+        _totalActiveAgents++;
+
+        emit AgentCreated(agentId, to, agentType, capabilities);
+        emit AgentMinted(agentId, to, agentType, block.timestamp);
     }
 
-    // =============================================================
-    //                      REPUTATION MANAGEMENT
-    // =============================================================
+    /**
+     * @notice Update agent capabilities (only by owner or authorized contracts)
+     */
+    function updateCapabilities(
+        uint256 agentId,
+        string[] calldata newCapabilities
+    ) external override agentExists(agentId) onlyAuthorized(agentId) nonReentrant {
+        if (newCapabilities.length > MAX_CAPABILITIES) {
+            revert MaxCapabilitiesExceeded(newCapabilities.length, MAX_CAPABILITIES);
+        }
+
+        // Clear existing capabilities
+        string[] storage currentCapabilities = _agentCapabilityList[agentId];
+        for (uint256 i = 0; i < currentCapabilities.length;) {
+            delete _agentCapabilities[agentId][currentCapabilities[i]];
+            unchecked { ++i; }
+        }
+        delete _agentCapabilityList[agentId];
+
+        // Set new capabilities
+        _setCapabilities(agentId, newCapabilities);
+
+        // Update agent info
+        _agents[agentId].capabilities = newCapabilities;
+        _packedData[agentId].capabilityCount = uint16(newCapabilities.length);
+
+        emit CapabilitiesUpdated(agentId, newCapabilities, msg.sender);
+    }
 
     /**
-     * @inheritdoc IAgentIdentity
+     * @dev Internal function to set capabilities with validation
+     */
+    function _setCapabilities(uint256 agentId, string[] calldata capabilities) private {
+        for (uint256 i = 0; i < capabilities.length;) {
+            if (bytes(capabilities[i]).length == 0) {
+                revert EmptyCapabilityString();
+            }
+
+            _agentCapabilities[agentId][capabilities[i]] = true;
+            _agentCapabilityList[agentId].push(capabilities[i]);
+
+            unchecked { ++i; }
+        }
+
+        // Store reference in main struct (for backward compatibility)
+        _agents[agentId].capabilities = capabilities;
+    }
+
+    /**
+     * @notice Change agent status
+     */
+    function changeStatus(
+        uint256 agentId,
+        AgentStatus newStatus,
+        string calldata reason
+    ) external override agentExists(agentId) onlyAuthorized(agentId) {
+        AgentStatus currentStatus = _packedData[agentId].status;
+
+        // Validate status transition
+        if (!_isValidStatusTransition(currentStatus, newStatus)) {
+            revert InvalidAgentStatus(currentStatus, newStatus);
+        }
+
+        // Update status
+        _agents[agentId].status = newStatus;
+        _packedData[agentId].status = newStatus;
+
+        // Update counters
+        if (currentStatus == AgentStatus.Active && newStatus != AgentStatus.Active) {
+            _totalActiveAgents--;
+        } else if (currentStatus != AgentStatus.Active && newStatus == AgentStatus.Active) {
+            _totalActiveAgents++;
+        }
+
+        if (newStatus == AgentStatus.Retired) {
+            _totalRetiredAgents++;
+        }
+
+        emit StatusChanged(agentId, currentStatus, newStatus, reason);
+    }
+
+    /**
+     * @dev Validate status transitions
+     */
+    function _isValidStatusTransition(AgentStatus current, AgentStatus next) private pure returns (bool) {
+        if (current == next) return false;
+        if (current == AgentStatus.Retired) return false; // Cannot change from retired
+
+        return true; // All other transitions are allowed
+    }
+
+    /**
+     * @notice Record an action performed by the agent
+     */
+    function recordAction(
+        uint256 agentId,
+        string calldata actionType,
+        address target,
+        bytes calldata data,
+        bool success
+    ) external override agentExists(agentId) onlyRole(CONTROLLER_ROLE) {
+        uint256 gasUsed = gasleft();
+
+        PerformanceMetrics storage metrics = _metrics[agentId];
+        metrics.totalGasUsed += gasUsed;
+
+        AgentInfo storage agent = _agents[agentId];
+        agent.actionsPerformed++;
+        agent.lastActive = block.timestamp;
+        _packedData[agentId].lastActive = uint128(block.timestamp);
+
+        if (success) {
+            agent.successfulActions++;
+            metrics.successfulActions++;
+        }
+
+        emit ActionPerformed(agentId, actionType, target, data, gasUsed);
+    }
+
+    // ============ REPUTATION MANAGEMENT ============
+
+    /**
+     * @notice Update agent reputation (only by authorized contracts)
      */
     function updateReputation(
-        bytes32 agentId,
-        uint256 newReputation
-    ) external override
-        onlyRole(REPUTATION_ORACLE_ROLE)
-        onlyExistingAgent(agentId)
-        validReputation(newReputation)
-        respectCooldown(agentId)
-        whenNotPaused
-    {
-        uint256 oldReputation = _agents[agentId].reputation;
+        uint256 agentId,
+        int256 reputationDelta,
+        string calldata reason
+    ) external override agentExists(agentId) onlyRole(REPUTATION_MANAGER_ROLE) validReputation(_agents[agentId].reputation + reputationDelta) {
+        int256 oldReputation = _agents[agentId].reputation;
+        int256 newReputation = oldReputation + reputationDelta;
+
+        // Clamp to valid range
+        if (newReputation > MAX_REPUTATION) newReputation = MAX_REPUTATION;
+        if (newReputation < MIN_REPUTATION) newReputation = MIN_REPUTATION;
+
         _agents[agentId].reputation = newReputation;
-        _lastReputationUpdate[agentId] = block.timestamp;
+        _packedData[agentId].reputation = int16(newReputation);
 
-        emit ReputationUpdated(agentId, oldReputation, newReputation, msg.sender);
+        emit ReputationUpdated(agentId, oldReputation, newReputation, reason);
     }
 
-    /**
-     * @notice Update reputation with signature verification
-     * @param agentId Agent to update
-     * @param newReputation New reputation score
-     * @param oracle Oracle address
-     * @param deadline Signature deadline
-     * @param signature EIP-712 signature from oracle
-     */
-    function updateReputationWithSignature(
-        bytes32 agentId,
-        uint256 newReputation,
-        address oracle,
-        uint256 deadline,
-        bytes calldata signature
-    ) external
-        onlyExistingAgent(agentId)
-        validReputation(newReputation)
-        respectCooldown(agentId)
-        whenNotPaused
-    {
-        if (!hasRole(REPUTATION_ORACLE_ROLE, oracle)) {
-            revert UnauthorizedCaller(oracle);
-        }
-
-        if (block.timestamp > deadline) {
-            revert SignatureExpired(deadline);
-        }
-
-        bytes32 structHash = keccak256(abi.encode(
-            UPDATE_REPUTATION_TYPEHASH,
-            agentId,
-            newReputation,
-            _nonces[oracle]++,
-            deadline
-        ));
-
-        bytes32 hash = _hashTypedDataV4(structHash);
-        address signer = hash.recover(signature);
-
-        if (signer != oracle) {
-            revert InvalidSignature();
-        }
-
-        uint256 oldReputation = _agents[agentId].reputation;
-        _agents[agentId].reputation = newReputation;
-        _lastReputationUpdate[agentId] = block.timestamp;
-
-        emit ReputationUpdated(agentId, oldReputation, newReputation, oracle);
-    }
+    // ============ VIEW FUNCTIONS ============
 
     /**
-     * @notice Apply reputation decay for inactive agents
-     * @param agentId Agent to apply decay to
+     * @notice Get basic agent information (gas optimized)
      */
-    function applyReputationDecay(bytes32 agentId) external onlyExistingAgent(agentId) {
-        AgentInfo storage agent = _agents[agentId];
-
-        uint256 timeSinceLastActivity = block.timestamp - agent.lastActive;
-        if (timeSinceLastActivity < DECAY_PERIOD) return;
-
-        uint256 decayPeriods = timeSinceLastActivity / DECAY_PERIOD;
-        uint256 decayAmount = (agent.reputation * reputationDecayRate * decayPeriods) / 10000;
-
-        if (decayAmount > 0) {
-            uint256 oldReputation = agent.reputation;
-            agent.reputation = agent.reputation > decayAmount ?
-                agent.reputation - decayAmount : MIN_REPUTATION;
-
-            emit ReputationDecayApplied(agentId, oldReputation, agent.reputation);
-        }
-    }
-
-    // =============================================================
-    //                      AGENT VERIFICATION
-    // =============================================================
-
-    /**
-     * @inheritdoc IERC8004
-     */
-    function verifyAgent(bytes32 agentId, bool verified)
-        external
-        override
-        onlyRole(VALIDATOR_ROLE)
-        onlyExistingAgent(agentId)
-        returns (bool success)
-    {
-        _verifiedAgents[agentId] = verified;
-        if (verified) {
-            _agentVerifiers[agentId] = msg.sender;
-        } else {
-            delete _agentVerifiers[agentId];
-        }
-
-        emit AgentVerified(agentId, msg.sender, verified);
-        return true;
-    }
-
-    // =============================================================
-    //                      AGENT MANAGEMENT
-    // =============================================================
-
-    /**
-     * @inheritdoc IAgentIdentity
-     */
-    function updateActivity(bytes32 agentId)
-        external
-        override
-        onlyExistingAgent(agentId)
-        whenNotPaused
-    {
-        _agents[agentId].lastActive = block.timestamp;
-    }
-
-    /**
-     * @inheritdoc IAgentIdentity
-     */
-    function setAgentActive(bytes32 agentId, bool isActive)
-        external
-        override
-        onlyAgentOwner(agentId)
-        whenNotPaused
-    {
-        bool wasActive = _agents[agentId].isActive;
-        _agents[agentId].isActive = isActive;
-
-        if (wasActive != isActive) {
-            if (isActive) {
-                emit AgentActivated(agentId, block.timestamp);
-            } else {
-                emit AgentDeactivated(agentId, block.timestamp);
-            }
-        }
-    }
-
-    /**
-     * @inheritdoc IAgentIdentity
-     */
-    function transferOwnership(bytes32 agentId, address newOwner)
-        external
-        override
-        onlyAgentOwner(agentId)
-        whenNotPaused
-    {
-        if (newOwner == address(0)) revert ZeroAddress();
-
-        address oldOwner = _agents[agentId].owner;
-
-        // Remove from old owner's list
-        _removeAgentFromOwner(agentId, oldOwner);
-
-        // Add to new owner's list
-        _ownerToAgents[newOwner].push(agentId);
-        _agentOwnerIndex[agentId] = _ownerToAgents[newOwner].length - 1;
-
-        // Update agent owner
-        _agents[agentId].owner = newOwner;
-
-        emit OwnershipTransferred(agentId, oldOwner, newOwner);
-    }
-
-    /**
-     * @inheritdoc IAgentIdentity
-     */
-    function updateMetadata(bytes32 agentId, string calldata newMetadataURI)
-        external
-        override
-        onlyAgentOwner(agentId)
-        whenNotPaused
-    {
-        if (bytes(newMetadataURI).length == 0) {
-            revert InvalidMetadataURI();
-        }
-
-        string memory oldMetadataURI = _agents[agentId].metadataURI;
-        _agents[agentId].metadataURI = newMetadataURI;
-
-        emit MetadataUpdated(agentId, oldMetadataURI, newMetadataURI);
-    }
-
-    /**
-     * @inheritdoc IERC8004
-     */
-    function updateAgentMetadata(bytes32 agentId, string calldata newMetadataURI)
-        external
-        override
-        onlyAgentOwner(agentId)
-        returns (bool success)
-    {
-        if (bytes(newMetadataURI).length == 0) {
-            revert InvalidMetadataURI();
-        }
-
-        _agents[agentId].metadataURI = newMetadataURI;
-
-        emit AgentMetadataUpdated(agentId, newMetadataURI);
-        return true;
-    }
-
-    // =============================================================
-    //                           VIEW FUNCTIONS
-    // =============================================================
-
-    /**
-     * @inheritdoc IAgentIdentity
-     */
-    function verifyAgent(bytes32 agentId) external view override returns (bool) {
-        return _agents[agentId].isActive && _agents[agentId].owner != address(0);
-    }
-
-    /**
-     * @inheritdoc IERC8004
-     */
-    function agentExists(bytes32 agentId) external view override returns (bool exists) {
-        return _agents[agentId].owner != address(0);
-    }
-
-    /**
-     * @inheritdoc IERC8004
-     */
-    function isAgentVerified(bytes32 agentId) external view override returns (bool verified) {
-        return _verifiedAgents[agentId];
-    }
-
-    /**
-     * @inheritdoc IAgentIdentity
-     */
-    function getAgentInfo(bytes32 agentId)
-        external
-        view
-        override
-        returns (AgentInfo memory)
-    {
+    function getAgentInfo(uint256 agentId) external view override agentExists(agentId) returns (AgentInfo memory) {
         return _agents[agentId];
     }
 
     /**
-     * @inheritdoc IERC8004
+     * @notice Get agent performance metrics
      */
-    function getAgent(bytes32 agentId)
-        external
-        view
-        override
-        returns (
-            address owner,
-            string memory metadataURI,
-            bool verified,
-            uint256 reputation
-        )
-    {
-        AgentInfo memory agent = _agents[agentId];
-        return (
-            agent.owner,
-            agent.metadataURI,
-            _verifiedAgents[agentId],
-            agent.reputation
-        );
+    function getPerformanceMetrics(uint256 agentId) external view override agentExists(agentId) returns (PerformanceMetrics memory) {
+        return _metrics[agentId];
     }
 
     /**
-     * @inheritdoc IAgentIdentity
+     * @notice Check if agent has specific capability (gas optimized)
      */
-    function getAgentOwner(bytes32 agentId)
-        external
-        view
-        override
-        returns (address)
-    {
-        return _agents[agentId].owner;
+    function hasCapability(uint256 agentId, string calldata capability)
+        external view override agentExists(agentId) returns (bool) {
+        return _agentCapabilities[agentId][capability];
     }
 
     /**
-     * @inheritdoc IAgentIdentity
+     * @notice Get all agents owned by a specific address
      */
-    function getAgentReputation(bytes32 agentId)
-        external
-        view
-        override
-        returns (uint256)
-    {
+    function getAgentsByOwner(address owner) external view override returns (uint256[] memory) {
+        return _ownerAgents[owner];
+    }
+
+    /**
+     * @notice Get agents by type
+     */
+    function getAgentsByType(string calldata agentType) external view override returns (uint256[] memory) {
+        return _agentsByType[agentType];
+    }
+
+    /**
+     * @notice Get total number of agents
+     */
+    function getTotalAgents() external view override returns (uint256) {
+        return _agentIdCounter.current() - 1;
+    }
+
+    /**
+     * @notice Check if an address is authorized to control an agent
+     */
+    function isAuthorized(uint256 agentId, address operator) external view override agentExists(agentId) returns (bool) {
+        address owner = ownerOf(agentId);
+        return operator == owner ||
+               _authorizedOperators[agentId][operator] ||
+               hasRole(CONTROLLER_ROLE, operator);
+    }
+
+    /**
+     * @notice Get agent reputation score
+     */
+    function getReputation(uint256 agentId) external view override agentExists(agentId) returns (int256) {
         return _agents[agentId].reputation;
     }
 
     /**
-     * @inheritdoc IAgentIdentity
+     * @notice Check if agent is active and can perform actions
      */
-    function getTotalAgents() external view override returns (uint256) {
-        return _totalAgents.current();
+    function isActive(uint256 agentId) external view override agentExists(agentId) returns (bool) {
+        return _packedData[agentId].status == AgentStatus.Active;
     }
 
     /**
-     * @inheritdoc IAgentIdentity
+     * @notice Get agents by reputation range
      */
-    function getAgentsByOwner(address owner)
-        external
-        view
-        override
-        returns (bytes32[] memory)
-    {
-        return _ownerToAgents[owner];
+    function getAgentsByReputation(
+        int256 minReputation,
+        int256 maxReputation
+    ) external view override returns (uint256[] memory) {
+        return _agentsByReputation[minReputation][maxReputation];
+    }
+
+    // ============ AUTHORIZATION FUNCTIONS ============
+
+    /**
+     * @notice Authorize an operator for an agent
+     */
+    function authorize(uint256 agentId, address operator) external onlyAgentOwner(agentId) {
+        _authorizedOperators[agentId][operator] = true;
     }
 
     /**
-     * @inheritdoc IAgentIdentity
+     * @notice Revoke authorization for an operator
      */
-    function isReputationOracle(address oracle)
-        external
-        view
-        override
-        returns (bool)
-    {
-        return hasRole(REPUTATION_ORACLE_ROLE, oracle);
+    function revoke(uint256 agentId, address operator) external onlyAgentOwner(agentId) {
+        delete _authorizedOperators[agentId][operator];
     }
 
-    /**
-     * @notice Get nonce for address (for signature verification)
-     * @param account Address to get nonce for
-     * @return Current nonce
-     */
-    function getNonce(address account) external view returns (uint256) {
-        return _nonces[account];
-    }
+    // ============ ADMIN FUNCTIONS ============
 
     /**
-     * @notice Get agent verifier
-     * @param agentId Agent to query
-     * @return verifier Address that verified the agent
+     * @notice Pause contract (admin only)
      */
-    function getAgentVerifier(bytes32 agentId) external view returns (address verifier) {
-        return _agentVerifiers[agentId];
-    }
-
-    // =============================================================
-    //                           ADMIN FUNCTIONS
-    // =============================================================
-
-    /**
-     * @inheritdoc IAgentIdentity
-     */
-    function setReputationOracle(address oracle, bool authorized)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        if (authorized) {
-            _grantRole(REPUTATION_ORACLE_ROLE, oracle);
-        } else {
-            _revokeRole(REPUTATION_ORACLE_ROLE, oracle);
-        }
-    }
-
-    /**
-     * @notice Set reputation decay rate
-     * @param newDecayRate New decay rate (basis points)
-     */
-    function setReputationDecayRate(uint256 newDecayRate)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        require(newDecayRate <= 100, "Decay rate too high"); // Max 1% per day
-        reputationDecayRate = newDecayRate;
-    }
-
-    /**
-     * @notice Pause the contract
-     */
-    function pause() external onlyRole(PAUSER_ROLE) {
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
-        emit EmergencyPause(msg.sender, block.timestamp);
     }
 
     /**
-     * @notice Unpause the contract
+     * @notice Unpause contract (admin only)
      */
-    function unpause() external onlyRole(PAUSER_ROLE) {
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
-        emit EmergencyUnpause(msg.sender, block.timestamp);
     }
 
-    // =============================================================
-    //                           INTERNAL FUNCTIONS
-    // =============================================================
+    /**
+     * @notice Update base URI for metadata
+     */
+    function setBaseURI(string calldata newBaseURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setBaseURI(newBaseURI);
+    }
+
+    // ============ STATISTICS FUNCTIONS ============
 
     /**
-     * @dev Remove agent from owner's list
+     * @notice Get global agent statistics
      */
-    function _removeAgentFromOwner(bytes32 agentId, address owner) internal {
-        bytes32[] storage ownerAgents = _ownerToAgents[owner];
-        uint256 index = _agentOwnerIndex[agentId];
-        uint256 lastIndex = ownerAgents.length - 1;
+    function getGlobalStats() external view returns (
+        uint256 totalAgents,
+        uint256 activeAgents,
+        uint256 retiredAgents,
+        uint256 averageReputation
+    ) {
+        totalAgents = _agentIdCounter.current() - 1;
+        activeAgents = _totalActiveAgents;
+        retiredAgents = _totalRetiredAgents;
 
-        if (index != lastIndex) {
-            bytes32 lastAgentId = ownerAgents[lastIndex];
-            ownerAgents[index] = lastAgentId;
-            _agentOwnerIndex[lastAgentId] = index;
+        // Calculate average reputation (simplified)
+        int256 totalReputation = 0;
+        for (uint256 i = 1; i < _agentIdCounter.current();) {
+            if (_exists(i)) {
+                totalReputation += _agents[i].reputation;
+            }
+            unchecked { ++i; }
+        }
+        averageReputation = totalAgents > 0 ? uint256(totalReputation) / totalAgents : 0;
+    }
+
+    // ============ OVERRIDE FUNCTIONS ============
+
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 firstTokenId,
+        uint256 batchSize
+    ) internal override(ERC721, ERC721Enumerable) whenNotPaused {
+        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
+
+        if (from != address(0) && to != address(0)) {
+            // Update owner mappings when transferring
+            _updateOwnerMappings(firstTokenId, from, to);
+        }
+    }
+
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 firstTokenId,
+        uint256 batchSize
+    ) internal override {
+        super._afterTokenTransfer(from, to, firstTokenId, batchSize);
+
+        if (from != address(0) && to != address(0)) {
+            emit AgentTransferred(firstTokenId, from, to, block.timestamp);
+        }
+    }
+
+    /**
+     * @dev Update owner mappings on transfer
+     */
+    function _updateOwnerMappings(uint256 agentId, address from, address to) private {
+        // Remove from old owner's list
+        uint256[] storage fromAgents = _ownerAgents[from];
+        for (uint256 i = 0; i < fromAgents.length;) {
+            if (fromAgents[i] == agentId) {
+                fromAgents[i] = fromAgents[fromAgents.length - 1];
+                fromAgents.pop();
+                break;
+            }
+            unchecked { ++i; }
         }
 
-        ownerAgents.pop();
-        delete _agentOwnerIndex[agentId];
+        // Add to new owner's list
+        _ownerAgents[to].push(agentId);
+
+        // Update agent owner
+        _agents[agentId].owner = to;
     }
 
-    /**
-     * @notice Check if contract supports interface
-     * @param interfaceId Interface identifier
-     * @return True if interface is supported
-     */
+    function tokenURI(uint256 tokenId)
+        public view override(ERC721, ERC721URIStorage) agentExists(tokenId) returns (string memory) {
+        return super.tokenURI(tokenId);
+    }
+
     function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(AccessControl)
+        public view override(ERC721, ERC721Enumerable, ERC721URIStorage, AccessControl)
         returns (bool)
     {
-        return
-            interfaceId == type(IAgentIdentity).interfaceId ||
-            interfaceId == type(IERC8004).interfaceId ||
-            super.supportsInterface(interfaceId);
+        return super.supportsInterface(interfaceId);
+    }
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
     }
 }
