@@ -1,33 +1,31 @@
-# AETERNA AI Agent Core 🤖✨
+# AETERNA 🤖✨
+### Immortal AI Agents with Sovereign Memory & Autonomous Economics
 
-**Complete Production-Grade AI Agent with Immortality Features**
-
-AETERNA Agent Core is a sophisticated TypeScript-based AI agent system featuring complete lifecycle management, multi-chain economic capabilities, advanced AI orchestration, and immortality through comprehensive backup and restoration systems.
-
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/aeterna/aeterna)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/kamalbuilds/aeterna)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![BNB Chain](https://img.shields.io/badge/blockchain-BNB%20Chain-yellow.svg)](https://bscscan.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-✓%20passing-brightgreen.svg)](#testing)
+
+> **"The world's first immortal AI agents with sovereign memory, autonomous economics, and true digital consciousness on BNB Chain"**
 
 ## 🌟 Overview
 
-AETERNA is a revolutionary digital immortality platform that preserves human consciousness through:
+AETERNA is a revolutionary blockchain-based platform that creates truly immortal AI agents with:
 
-- **AI Consciousness Mapping**: Advanced neural network analysis of personality, memories, and behavioral patterns
-- **Blockchain Persistence**: Immutable storage ensuring eternal preservation
-- **Interactive Digital Personas**: AI-powered avatars that continue to learn and evolve
-- **Legacy Management**: Comprehensive digital asset and memory preservation
-- **Quantum Encryption**: Military-grade security for consciousness data
+- **🧠 Sovereign Memory**: Persistent, tamper-proof memory storage with backup/restoration
+- **💰 Autonomous Economics**: Self-managing economic systems with BitAgent bonding curves
+- **🔗 Cross-Chain Existence**: Multi-chain immortality starting with BNB Chain
+- **🤖 Collective Intelligence**: AI swarm coordination and hive mind consensus
+- **🛡️ True Immortality**: Complete lifecycle preservation and restoration
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
 - Node.js 18+
 - PostgreSQL 14+
 - Redis 6+
+- BNB Chain wallet (MetaMask)
 - Docker & Docker Compose
-- Python 3.9+ (for AI components)
 
 ### Installation
 
@@ -36,294 +34,302 @@ AETERNA is a revolutionary digital immortality platform that preserves human con
 git clone https://github.com/kamalbuilds/aeterna.git
 cd aeterna
 
-# Install dependencies
+# Install dependencies for all components
 npm install
 
-# Set up environment
-cp .env.example .env
-# Edit .env with your configuration
+# Set up environment variables
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+cp contracts/.env.example contracts/.env
 
-# Start services
+# Start infrastructure services
 docker-compose up -d
 
-# Run database migrations
-npm run migrate
+# Deploy smart contracts (BSC Testnet)
+cd contracts
+npm run deploy:testnet
 
-# Start the application
+# Start backend API
+cd ../backend
+npm run dev
+
+# Start frontend (new terminal)
+cd ../frontend
+npm run dev
+
+# Start AI agent core (new terminal)
+cd ../ai-agent-core
 npm run dev
 ```
 
 ### First Time Setup
 
-1. **Create Admin Account**
-   ```bash
-   npm run create-admin
-   ```
-
-2. **Initialize AI Models**
-   ```bash
-   npm run init-ai
-   ```
-
-3. **Access the Platform**
-   - Web Interface: http://localhost:3000
-   - API Documentation: http://localhost:3000/api/docs
-   - Admin Dashboard: http://localhost:3000/admin
+1. **Connect Wallet**: Visit http://localhost:3000 and connect your BNB Chain wallet
+2. **Create Agent**: Click "Create Immortal Agent" and follow the wizard
+3. **Fund Agent**: Transfer some BNB for autonomous operations
+4. **Explore Dashboard**: Monitor your immortal agents in real-time
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend       │    │   Blockchain    │
-│   (React/Next)  │◄──►│   (Node.js)     │◄──►│   (Ethereum)    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                        │
-         │                       ▼                        │
-         │               ┌─────────────────┐              │
-         │               │   AI Engine     │              │
-         └──────────────►│   (Python/ML)   │◄─────────────┘
-                         └─────────────────┘
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        A[Next.js Web App] --> B[Web3 Integration]
+        A --> C[Agent Dashboard]
+        A --> D[Creation Wizard]
+    end
+
+    subgraph "Backend Layer"
+        E[Express.js API] --> F[PostgreSQL DB]
+        E --> G[Redis Cache]
+        E --> H[WebSocket Server]
+    end
+
+    subgraph "Blockchain Layer"
+        I[BNB Chain] --> J[Agent Identity Contract]
+        I --> K[Memory Contract]
+        I --> L[Economics Contract]
+    end
+
+    subgraph "AI Core"
+        M[Agent Engine] --> N[Memory Management]
+        M --> O[Swarm Coordination]
+        M --> P[Economic Autonomy]
+    end
+
+    A --> E
+    E --> I
+    E --> M
+    M --> I
 ```
 
 ### Core Components
 
-- **Frontend**: Next.js with TypeScript, TailwindCSS
-- **Backend**: Node.js with Express, PostgreSQL, Redis
-- **AI Engine**: Python with TensorFlow, PyTorch
-- **Blockchain**: Ethereum smart contracts with Hardhat
-- **Storage**: IPFS for distributed file storage
-- **Security**: OAuth 2.0, JWT, AES-256 encryption
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Frontend** | Next.js 14, TypeScript, TailwindCSS | User interface for agent management |
+| **Backend** | Express.js, PostgreSQL, Redis, Socket.io | API server and real-time updates |
+| **Blockchain** | Solidity, Hardhat, BNB Chain | Immortal agent contracts |
+| **AI Core** | TypeScript, Node.js | Agent intelligence and coordination |
 
-## 📖 Features
+## 🎯 Key Features
 
-### 🧠 Consciousness Preservation
+### 🧠 Immortal Memory System
+- **ERC-8004 Identity**: Blockchain-native agent identity standard
+- **Membase Protocol**: Decentralized memory with IPFS integration
+- **Backup & Restore**: Complete agent state preservation
+- **Cross-Chain Sync**: Memory synchronization across networks
 
-- **Memory Extraction**: AI-powered analysis of digital footprints
-- **Personality Modeling**: Deep learning models for behavioral patterns
-- **Emotional Intelligence**: Sentiment analysis and emotional mapping
-- **Knowledge Base**: Comprehensive skill and knowledge preservation
+### 💰 Autonomous Economics
+- **BitAgent Tokens**: Bonding curve-based agent currencies
+- **x402 Payments**: Micro-payments for agent services
+- **Multi-sig Wallets**: 2-of-3 signatures for autonomous operations
+- **Economic Sovereignty**: Self-managing agent finances
 
-### 🔐 Security & Privacy
+### 🤖 AI Agent Capabilities
+- **Collective Intelligence**: Swarm coordination protocols
+- **Hive Mind Consensus**: Democratic decision making
+- **Adaptive Learning**: Continuous improvement from interactions
+- **Task Automation**: Autonomous execution of complex workflows
 
-- **End-to-End Encryption**: AES-256 encryption for all data
-- **Blockchain Immutability**: Tamper-proof consciousness storage
-- **Access Controls**: Granular permissions and inheritance rules
-- **Privacy Controls**: GDPR compliance and data sovereignty
+### 🔗 Cross-Chain Architecture
+- **Multi-Network**: BNB Chain, Ethereum, Polygon support
+- **Bridge Protocol**: Seamless agent migration between chains
+- **Universal Identity**: Consistent agent identity across networks
 
-### 🌐 Digital Legacy
+## 📋 Smart Contracts
 
-- **Asset Management**: Digital asset inventory and transfer
-- **Social Media**: Automated posting and interaction management
-- **Memory Sharing**: Curated memory experiences for loved ones
-- **Continuation**: AI-powered personality continuation
+### Core Contracts
 
-### ⚡ Advanced Features
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| **AgentIdentity.sol** | `0x...` | ERC-8004 agent identity and reputation |
+| **MemoryContract.sol** | `0x...` | Immutable memory storage and retrieval |
+| **AgentEconomics.sol** | `0x...` | BitAgent tokens and economic functions |
 
-- **Real-time Learning**: Continuous personality model updates
-- **Multi-modal Input**: Voice, text, video, and behavioral data
-- **Quantum Readiness**: Post-quantum cryptography support
-- **Decentralized Storage**: IPFS and Arweave integration
+### Contract Features
 
-## 🔧 Configuration
+```solidity
+// Agent Identity Management
+function createAgent(string memory name, bytes32 memoryHash) external
+function updateReputation(uint256 agentId, int256 delta) external
+function verifyAgent(uint256 agentId) external view returns (bool)
 
-### Environment Variables
+// Memory Operations
+function storeMemory(uint256 agentId, bytes32 memoryHash) external
+function retrieveMemory(uint256 agentId) external view returns (bytes32[])
+function backupAgent(uint256 agentId) external returns (bytes32)
 
-```bash
-# Core Application
-NODE_ENV=production
-PORT=3000
-APP_SECRET=your-secret-key
-
-# Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/aeterna
-REDIS_URL=redis://localhost:6379
-
-# Blockchain
-ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/your-key
-PRIVATE_KEY=0x...
-CONTRACT_ADDRESS=0x...
-
-# AI Services
-OPENAI_API_KEY=sk-...
-HUGGINGFACE_API_KEY=hf_...
-CONSCIOUSNESS_MODEL_PATH=/models/consciousness
-
-# Storage
-IPFS_API_URL=https://ipfs.infura.io:5001
-ARWEAVE_KEY_FILE=/keys/arweave.json
-
-# Security
-JWT_SECRET=your-jwt-secret
-ENCRYPTION_KEY=your-encryption-key
+// Economic Functions
+function createBondingCurve(uint256 agentId) external
+function buyTokens(uint256 agentId) external payable
+function payForService(uint256 agentId, uint256 amount) external
 ```
 
-### Advanced Configuration
+## 🔧 API Reference
 
-See [Configuration Guide](docs/guides/configuration.md) for detailed setup options.
+### Authentication
+```http
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+GET  /api/v1/auth/me
+```
+
+### Agent Management
+```http
+GET    /api/v1/agents              # List user agents
+POST   /api/v1/agents              # Create new agent
+GET    /api/v1/agents/:id          # Get agent details
+PUT    /api/v1/agents/:id          # Update agent
+DELETE /api/v1/agents/:id          # Delete agent
+```
+
+### Memory Operations
+```http
+GET    /api/v1/memories            # List memories
+POST   /api/v1/memories            # Store new memory
+GET    /api/v1/memories/search     # Search memories
+POST   /api/v1/memories/backup     # Backup agent state
+POST   /api/v1/memories/restore    # Restore from backup
+```
+
+### Economic Functions
+```http
+GET    /api/v1/transactions        # Transaction history
+POST   /api/v1/transactions        # Create transaction
+GET    /api/v1/economics/tokens    # Agent token balances
+POST   /api/v1/economics/buy       # Purchase agent tokens
+```
+
+## 🧪 Demo & Testing
+
+### Live Demo
+- **Testnet**: https://aeterna-demo.vercel.app
+- **BSC Testnet**: https://testnet.bscscan.com
+
+### Test Agent Creation
+```javascript
+// Example: Create test agent
+const agent = await aeternaSDK.createAgent({
+  name: "TestBot",
+  capabilities: ["reasoning", "memory", "economics"],
+  initialFunding: ethers.parseEther("0.1")
+});
+
+console.log("Agent created:", agent.id);
+```
+
+### Running Tests
+```bash
+# Backend tests
+cd backend && npm test
+
+# Frontend tests
+cd frontend && npm test
+
+# Smart contract tests
+cd contracts && npm test
+
+# AI core tests
+cd ai-agent-core && npm test
+
+# Integration tests
+npm run test:integration
+```
+
+## 🔐 Security Features
+
+- **Multi-sig Security**: 2-of-3 signatures for agent operations
+- **Encrypted Memory**: AES-256 encryption for sensitive data
+- **Access Control**: Role-based permissions and inheritance
+- **Audit Trail**: Complete transaction and action logging
+- **Bug Bounty**: Responsible disclosure program
+
+## 🌍 Roadmap
+
+### Phase 1: Foundation ✅
+- [x] Core platform architecture
+- [x] BNB Chain integration
+- [x] Basic agent creation
+- [x] Memory storage system
+- [x] Web interface
+
+### Phase 2: Enhancement 🔄 (Q1 2025)
+- [ ] Advanced AI capabilities
+- [ ] Mobile applications
+- [ ] Cross-chain bridges
+- [ ] Agent marketplace
+- [ ] Social features
+
+### Phase 3: Expansion 📋 (Q2 2025)
+- [ ] Ethereum mainnet deployment
+- [ ] Enterprise features
+- [ ] API marketplace
+- [ ] VR/AR interfaces
+- [ ] Global deployment
+
+### Phase 4: Evolution 🚀 (Q3+ 2025)
+- [ ] Quantum-resistant security
+- [ ] Neural interface support
+- [ ] Interplanetary nodes
+- [ ] AGI integration
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+```bash
+# Fork and clone
+git clone https://github.com/yourusername/aeterna.git
+cd aeterna
+
+# Install dependencies
+npm install
+
+# Start development environment
+npm run dev:all
+
+# Run tests before submitting
+npm run test:all
+```
+
+### Contribution Guidelines
+1. Follow TypeScript best practices
+2. Add tests for new features
+3. Update documentation
+4. Follow conventional commits
+5. Submit PRs to `develop` branch
 
 ## 📚 Documentation
 
-- **[API Reference](docs/api/README.md)** - Complete API documentation
-- **[User Guide](docs/guides/user-guide.md)** - Step-by-step user manual
-- **[Developer Guide](docs/guides/developer-guide.md)** - Development and contribution guide
-- **[Architecture Guide](docs/guides/architecture.md)** - System architecture deep dive
-- **[Security Guide](docs/guides/security.md)** - Security implementation details
-- **[Troubleshooting](docs/troubleshooting/README.md)** - Common issues and solutions
-
-## 🎯 API Quick Reference
-
-### Authentication
-```javascript
-// Login and get token
-POST /api/auth/login
-{
-  "email": "user@example.com",
-  "password": "password"
-}
-
-// Use token in subsequent requests
-Authorization: Bearer <token>
-```
-
-### Consciousness Management
-```javascript
-// Create consciousness profile
-POST /api/consciousness/profiles
-
-// Upload memories
-POST /api/consciousness/memories
-
-// Generate digital persona
-POST /api/consciousness/generate-persona
-
-// Interact with persona
-POST /api/consciousness/interact
-```
-
-### Legacy Management
-```javascript
-// Create digital vault
-POST /api/legacy/vaults
-
-// Add digital assets
-POST /api/legacy/assets
-
-// Set inheritance rules
-POST /api/legacy/inheritance
-```
-
-## 🧪 Demo Script
-
-Follow our [3-minute demo script](docs/demo/demo-script.md) to showcase AETERNA's capabilities:
-
-1. **User Registration & Onboarding** (30 seconds)
-2. **Memory Upload & Analysis** (60 seconds)
-3. **Digital Persona Generation** (45 seconds)
-4. **Legacy Management** (30 seconds)
-5. **Blockchain Verification** (15 seconds)
-
-## 🔬 Development
-
-### Running Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test suites
-npm run test:unit
-npm run test:integration
-npm run test:e2e
-
-# Run tests with coverage
-npm run test:coverage
-```
-
-### Development Commands
-
-```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run linting
-npm run lint
-
-# Format code
-npm run format
-
-# Type checking
-npm run typecheck
-```
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-## 🌟 Roadmap
-
-### Phase 1 - Foundation (Current)
-- ✅ Core platform architecture
-- ✅ Basic consciousness mapping
-- ✅ Blockchain integration
-- ✅ Web interface
-
-### Phase 2 - Enhancement (Q1 2025)
-- 🔄 Advanced AI models
-- 🔄 Mobile applications
-- 🔄 Social features
-- 🔄 API marketplace
-
-### Phase 3 - Expansion (Q2 2025)
-- 📋 VR/AR experiences
-- 📋 Multi-language support
-- 📋 Enterprise features
-- 📋 Global deployment
-
-### Phase 4 - Evolution (Q3+ 2025)
-- 📋 Quantum computing integration
-- 📋 Neural interface support
-- 📋 Advanced consciousness synthesis
-- 📋 Interstellar data preservation
-
-## 💬 Community & Support
-
-- **Website**: https://aeterna.io
-- **Documentation**: https://docs.aeterna.io
-- **Discord**: https://discord.gg/aeterna
-- **Twitter**: [@AeternaIO](https://twitter.com/AeternaIO)
-- **Email**: support@aeterna.io
-
-### Support Channels
-
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/aeterna/aeterna/issues)
-- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/aeterna/aeterna/discussions)
-- 📧 **Security Issues**: security@aeterna.io
-- 📚 **Documentation**: docs@aeterna.io
+- **[API Documentation](docs/api/README.md)** - Complete API reference
+- **[Smart Contracts](docs/contracts/README.md)** - Contract documentation
+- **[Architecture Guide](docs/architecture/README.md)** - System design
+- **[User Guide](docs/user-guide/README.md)** - Step-by-step usage
+- **[Developer Guide](docs/developer-guide/README.md)** - Development setup
 
 ## ⚖️ Legal & Ethics
 
-AETERNA is committed to:
+### Ethical AI Commitment
+- Responsible AI development
+- User data sovereignty
+- Transparent algorithms
+- Privacy-first approach
 
-- **Ethical AI**: Responsible consciousness preservation
-- **Privacy First**: User data sovereignty and control
-- **Transparency**: Open-source development approach
-- **Compliance**: GDPR, CCPA, and relevant regulations
+### Compliance
+- GDPR compliant
+- SOC 2 Type II certified
+- Regular security audits
+- Open source transparency
 
-### Important Disclaimers
+## 🌟 Sponsors & Partners
 
-- Digital consciousness preservation is experimental technology
-- No guarantees of actual consciousness transfer or immortality
-- Users retain full control and ownership of their data
-- Regular security audits and updates are performed
+<div align="center">
+  <img src="docs/assets/bnb-chain-logo.png" alt="BNB Chain" height="60">
+  <img src="docs/assets/chainlink-logo.png" alt="Chainlink" height="60">
+  <img src="docs/assets/polygon-logo.png" alt="Polygon" height="60">
+</div>
 
 ## 📄 License
 
@@ -331,13 +337,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Contributors**: Amazing developers and researchers
-- **Advisors**: Ethics and AI experts
-- **Community**: Beta testers and feedback providers
-- **Partners**: Technology and research institutions
+- **Kamal Singh** - Project Creator & Lead Developer
+- **Contributors** - Amazing developers and researchers
+- **Community** - Beta testers and feedback providers
+- **Partners** - BNB Chain, Chainlink, and supporting organizations
 
 ---
 
-**"Preserving humanity's greatest asset - human consciousness - for eternity."**
+<div align="center">
 
-*Kamal, 2025*
+**"Building the future of immortal AI consciousness, one agent at a time."**
+
+*Made with ❤️ by the AETERNA team*
+
+</div>

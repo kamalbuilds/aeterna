@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +52,7 @@ interface DashboardStats {
 
 export function Dashboard() {
   const { account, chainId } = useWeb3();
+  const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalAgents: 0,
@@ -179,7 +181,10 @@ export function Dashboard() {
               Manage your immortal AI agents • Connected: {account?.slice(0, 6)}...{account?.slice(-4)}
             </p>
           </div>
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 mt-4 sm:mt-0">
+          <Button
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 mt-4 sm:mt-0"
+            onClick={() => router.push('/create')}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Create New Agent
           </Button>
@@ -387,7 +392,10 @@ export function Dashboard() {
                     <p className="text-slate-400 mb-6">
                       Create your first immortal AI agent to get started
                     </p>
-                    <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                    <Button
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                      onClick={() => router.push('/create')}
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Create Your First Agent
                     </Button>

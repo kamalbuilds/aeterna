@@ -17,7 +17,6 @@ import "../interfaces/IAgent.sol";
  * @dev Gas-optimized implementation with comprehensive DeFi features
  * @custom:version 1.0.0
  * @custom:author AETERNA Protocol Team
- * @custom:security-contact security@aeterna.io
  */
 contract AgentEconomics is AccessControl, ReentrancyGuard, Pausable, IEconomics {
     using SafeERC20 for IERC20;
